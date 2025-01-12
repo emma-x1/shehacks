@@ -1,6 +1,11 @@
 import json
 import torch
-from transformers import (AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, pipeline)
+from transformers import (AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, pipeline, AutoConfig)
+from accelerate import Accelerator
+
+accelerator = Accelerator()
+
+torch.cuda.empty_cache()
 
 config_data = json.load(open('config.json'))
 HF_TOKEN = config_data['HF_TOKEN']
@@ -20,28 +25,38 @@ bnb_config = BitsAndBytesConfig(
 tokenizer = AutoTokenizer.from_pretrained(model_id, token=HF_TOKEN)
 tokenizer.pad_token = tokenizer.eos_token
 
+model_config = AutoConfig.from_pretrained(model_id, token=HF_TOKEN)
+model_config.rope_scaling = {
+    "type": "linear",
+    "factor": 32.0
+}
+
+
 #model
 model = AutoModelForCausalLM.from_pretrained(
     model_id, 
-    device_map="auto", 
-    quantization_config=bnb_config,
+    config=model_config,
+    device_map="auto",
+    torch_dtype=torch.bfloat16,
+    #quantization_config=bnb_config,
     token=HF_TOKEN,
     )
 
-#pipeline
-messages = [
-    {"role": "user", "content": "Generate a text message prompt for a user to answer. This text message prompt should be a typical question asked in a specific type of setting. The user should be asked to provide a response to the question. If the indicated level is low, the question should be a typical, easy-to-answer question, while if the level is high, the question should require more thought, be more unexpected, and be more creative."},
-]
+model = accelerator.prepare(model)
 
-pipe = pipeline(
+#pipeline
+
+text_generator = pipeline(
     "text-generation", 
     model=model,
     tokenizer=tokenizer,
-    max_new_tokens=256,
+    max_new_tokens=128,
+    temperature=0.7
     )
 
-outputs = pipe(
-    messages,
-    max_new_tokens=256,)
+def generate_text_prompt(setting:str, level:int):
+    message = f"Ask a conversational question appropriate for a {setting} setting." #The question should be easy for level {level}."
+    result = text_generator(message)
+    return result[0]['generated_text']
 
-print(outputs[0]['generated_text'])[-1]
+print(generate_text_prompt("professional", 1))
