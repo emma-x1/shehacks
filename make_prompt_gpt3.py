@@ -1,9 +1,12 @@
 from pydantic import BaseModel
 from openai import OpenAI
 import json
+import speech_recognition as sr
+import pyttsx3
 
 config_data = json.load(open('config.json'))
 OPENAI_KEY = config_data['OPENAI_KEY']
+
 
 client = OpenAI(
   api_key=OPENAI_KEY
@@ -15,6 +18,30 @@ class Prompt(BaseModel):
 class Review(BaseModel):
     score: int
     feedback: str
+
+recognizer = sr.Recognizer()
+engine = pyttsx3.init()
+
+def input_audio():
+    while True:
+        try:
+            with sr.Microphone() as mic:
+                recognizer.adjust_for_ambient_noise(mic, duration=0.2)
+                print("Please speak now...")
+                audio = recognizer.listen(mic)
+                text = recognizer.recognize_sphinx(audio)
+                print("You said:", text)
+                return text
+
+        except sr.UnknownValueError:
+            print("Could not understand audio, try again...")
+            continue
+
+def output_audio(text):
+    engine.setProperty('rate', 150)
+    engine.setProperty('volume', 1)
+    engine.say(text)
+    engine.runAndWait()
 
 def make_prompt(setting:str, level:int):
     prompt = f"Ask me a conversational question appropriate for a {setting} setting. This should be a level {level} question, where level 1 indicates a straightforward, typical question, and higher levels indicate more complex questions."
@@ -40,5 +67,42 @@ def evaluate_response(question:str, response:str):
     )
     return completion.choices[0].message.content
 
-print(make_prompt("professional", 3))
-print(evaluate_response("What is your favorite color?", "My favorite color is red"))
+def init_response():
+    prompt_1 = "Choose the conversation type: Professional, Romantic, or Casual."
+    output_audio(prompt_1)
+
+
+
+
+currently_playing = True
+difficulty = 1
+
+while True:
+    init_response()
+    user_input = input_audio() 
+
+    if user_input:
+        conversation_type = user_input
+        if conversation_type in ["professional", "romantic", "romantics", "casual"]:
+            prompt = make_prompt(conversation_type, difficulty)
+            output_audio(prompt)
+
+                        
+            response = input_audio()  
+            
+            evaluation = evaluate_response(prompt, response)
+            output_audio(evaluation)
+
+            output_audio("Would you like to continue to the next level?")
+
+            intent = input_audio()
+            if intent == 'Yes':
+                currently_playing = True
+                difficulty += 1
+        
+        else:
+            output_audio("Invalid conversation type. Please choose Professional, Romantic, or Casual.")
+    else:
+        output_audio("Sorry, I didn't catch that. Please say again.")
+
+
