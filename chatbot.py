@@ -70,39 +70,7 @@ def evaluate_response(question:str, response:str):
 def init_response():
     prompt_1 = "Choose the conversation type: Professional, Romantic, or Casual."
     output_audio(prompt_1)
+    return jsonify({"response": prompt_1}), 200
 
-
-
-
-currently_playing = True
-difficulty = 1
-
-while True:
-    init_response()
-    user_input = input_audio() 
-
-    if user_input:
-        conversation_type = user_input
-        if conversation_type in ["professional", "romantic", "romantics", "casual"]:
-            prompt = make_prompt(conversation_type, difficulty)
-            output_audio(prompt)
-
-                        
-            response = input_audio()  
-            
-            evaluation = evaluate_response(prompt, response)
-            output_audio(evaluation)
-
-            output_audio("Would you like to continue to the next level?")
-
-            intent = input_audio()
-            if intent == 'Yes':
-                currently_playing = True
-                difficulty += 1
-        
-        else:
-            output_audio("Invalid conversation type. Please choose Professional, Romantic, or Casual.")
-    else:
-        output_audio("Sorry, I didn't catch that. Please say again.")
-
+ 
 
